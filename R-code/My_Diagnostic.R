@@ -94,5 +94,3 @@ MY_Diagnostic <- function(true_ADJ, predicted_ADJ, number_of_genes){
   
   return(Diag_results)
 }
-
-
