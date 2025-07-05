@@ -45,19 +45,7 @@ calculate_fscore <- function(predicted_matrix, true_matrix) {
 #' @noRd
 to_binary_matrix <- function(mat) { ifelse(mat != 0, 1, 0) }
 
-########################################################
-########################################################
-amgut1_bootstrap <- Bootstrap_amgut1
 
-amgut1_gcoda_SE_100 <- amgut1___gC__LData100__SE
-amgut1_gcoda_SP_100 <- amgut1___gC__LData100__SP
-
-amgut1_cluster_SE_100 <- amgut1__cluster_LData100_SE
-amgut1_cluster_SP_100 <- amgut1__cluster_LData100_SP
-
-amgut1_noise05_100 <- lapply(amgut1__TRUNC__.05__LData100, round)
-amgut1_noise20_100 <- lapply(amgut1__TRUNC__.2__LData100, round)
-########################################################
 ########################################################
 
 
@@ -78,10 +66,7 @@ amgut1_gcoda_SP_fscore <- lapply(amgut1_gcoda_SP_100, calculate_fscore, amgut1.f
 amgut1_cluster_SE_fscore <- lapply(amgut1_cluster_SE_100, calculate_fscore, amgut1.filt)
 amgut1_cluster_SP_fscore <- lapply(amgut1_cluster_SP_100, calculate_fscore, amgut1.filt)
 
-# Plot
-# setwd("/Users/macbookpro/Desktop/SSH/paper evaluation/git_microbiome/Microbiome-Network-Evaluation/R-code/")
-# 
-# pdf("Matrix entry similarity.pdf", width = 15, height = 8)
+
 # par(mfrow = c(1,1), mar = c(2.5, 2, 2.5, 2), oma = c(10, 23, 10, 22)) #
 boxplot(as.numeric(amgut1_cluster_SE_fscore),
         as.numeric(amgut1_gcoda_SE_fscore),

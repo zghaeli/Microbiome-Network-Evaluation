@@ -54,10 +54,7 @@ amgut1_gcoda_SP_richness_pvalues <- compare_richness(amgut1.filt, amgut1_gcoda_S
 amgut1_cluster_SE_richness_pvalues <- compare_richness(amgut1.filt, amgut1_cluster_SE_100)
 amgut1_cluster_SP_richness_pvalues <- compare_richness(amgut1.filt, amgut1_cluster_SP_100)
 
-# setwd("/Users/macbookpro/Desktop/SSH/paper evaluation/git_microbiome/Microbiome-Network-Evaluation/R-code/")
-# 
-# pdf("Richness__amgut1_new.pdf", width = 15, height = 8)
-# 
+ 
 # ##*****************            Richness             ****************
 par(mar = c(2.5, 2, 2.5, 2), mfrow = c(2,2), oma = c(6, 19, 5, 28))
 

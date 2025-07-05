@@ -27,11 +27,8 @@ amgut1_gcoda_SP_ks <- lapply(amgut1_gcoda_SP_100, ks_signif_ratio, amgut1.filt, 
 amgut1_cluster_SE_ks <- lapply(amgut1_cluster_SE_100, ks_signif_ratio, amgut1.filt, 0.05)
 amgut1_cluster_SP_ks <- lapply(amgut1_cluster_SP_100, ks_signif_ratio, amgut1.filt, 0.05)
 
-# setwd("/Users/macbookpro/Desktop/SSH/paper evaluation/git_microbiome/Microbiome-Network-Evaluation/R-code/")
-# 
-# pdf("KS__amgut1.pdf", width = 15, height = 8)
-# 
-# ##*****************            Richness             ****************
+# Plot
+# ##*************       KS.TEST        ****************
 # par(mar = c(2.5, 2, 2.5, 2), mfrow = c(2,2), oma = c(6, 19, 5, 28))
 
 vioplot::vioplot(as.numeric(amgut1_cluster_SE_ks),
