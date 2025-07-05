@@ -8,8 +8,10 @@ A Pipeline for Evaluating New Algorithms for Constructing Microbial Co-occurrenc
 
 In this work evaluating microbial network inference algorithms—gCoda, OIPCQ, S-E(glasso), S-E(mb), SPRING, and SparCC—under varied conditions, we generated three types of datasets derived from real data: synthetic, noisy, and bootstrap datasets. To assess how closely these datasets resemble real microbiome data, we conducted three types of comparisons: diversity analysis, matrix entry similarity, and distributional alignment. To evaluate their performance, we compared the inferred networks to reference networks using the F-score metric. We adjusted the parameters of each method so that the number of edges in the generated networks fell within a comparable range for a fair comparison.
 
+Create Table of Contents
 ## Table of Contents
 - [Algorithms used for evaluation comparison](#algorithms-used-for-comparing)
+- [Real datasets](#real-datasets) 
 - [Data generation methods](#data-generation-methods)
     - [Bootstrap](#bootstrap)
     - [Noisy](#noisy)
@@ -28,6 +30,12 @@ In this work evaluating microbial network inference algorithms—gCoda, OIPCQ, S
 + SPRING ([SPRING package](https://github.com/GraceYoon/SPRING))
 + SparCC ([SpiecEasi package](https://github.com/zdk123/SpiecEasi))
 
+## Real datasets
+
++ amgut1 from ([SpiecEasi package](https://github.com/zdk123/SpiecEasi))
++ amgut2 from ([SpiecEasi package](https://github.com/zdk123/SpiecEasi))
++ GUT from (https://github.com/sahatava/MixMPLN/blob/master/data/real_data.csv)
++ MOMS-PI from (https://github.com/sahatava/MixMPLN/blob/master/data/real_data.csv)
 
 ## Data generation methods
 
