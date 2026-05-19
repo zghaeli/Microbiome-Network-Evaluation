@@ -317,3 +317,6 @@ title(paste0("gCoda"), cex.main = 1)
 mtext(expression(bold("amgut1")), side = 3, at = .1, line = -.8, outer = TRUE, cex = 1.3) 
 ```
 ![gcoda fscores](/image/gcoda_fscores.png)
+
+
+Data
