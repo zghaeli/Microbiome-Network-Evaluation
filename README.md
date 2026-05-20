@@ -30,12 +30,45 @@ Create Table of Contents
 + SPRING ([SPRING package](https://github.com/GraceYoon/SPRING))
 + SparCC ([SpiecEasi package](https://github.com/zdk123/SpiecEasi))
 
-## Real datasets
+## Data availability
 
-+ amgut1 from ([SpiecEasi package](https://github.com/zdk123/SpiecEasi))
-+ amgut2 from ([SpiecEasi package](https://github.com/zdk123/SpiecEasi))
-+ GUT from (https://github.com/sahatava/MixMPLN/blob/master/data/real_data.csv)
-+ MOMS-PI from (https://github.com/sahatava/MixMPLN/blob/master/data/real_data.csv)
+For each dataset, the original source repository and accession numbers or unique identifiers are provided below.
+
+### American Gut Project datasets (`amgut1` and `amgut2`)
+
+The raw sequence data and metadata originate from the American Gut Project (AGP). The primary repositories are:
+
+- Qiita database: study ID 10317  
+  https://qiita.ucsd.edu/study/description/10317
+
+- European Nucleotide Archive (ENA) at the European Bioinformatics Institute (EBI): project accession PRJEB11419  
+  https://www.ebi.ac.uk/ena/data/view/PRJEB11419
+
+The specific processed OTU tables used in this study are built-in datasets of the R package `SpiecEasi`.
+
+### GUT dataset
+
+This dataset originates from the study by Yooseph et al. (2015):  
+https://doi.org/10.1186/s12864-015-1819-3
+
+Because no public sequence repository accession number was available for the processed version used in this study, the processed sample-taxa count matrix was obtained from the GitHub repository of the `MixMPLN` package:
+
+https://github.com/sahatava/MixMPLN/blob/master/data/real_data.csv
+
+### MOMS-PI dataset
+
+This dataset is from the Multi-Omic Microbiome Study: Pregnancy Initiative (MOMS-PI). The raw data are deposited in:
+
+- NCBI Database of Genotypes and Phenotypes (dbGaP): accession phs001523  
+  https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=phs001523
+
+- NCBI BioProject: accession PRJNA430481  
+  https://www.ncbi.nlm.nih.gov/bioproject/PRJNA430481
+
+The specific processed OTU table used in this study was provided by Osborne et al. (2022) and is accessible at:
+
+https://github.com/Nathan-Osborne/SINC/blob/master/DataApplication/OTU.csv
+
 
 ## Data generation methods
 
@@ -319,4 +352,3 @@ mtext(expression(bold("amgut1")), side = 3, at = .1, line = -.8, outer = TRUE, c
 ![gcoda fscores](/image/gcoda_fscores.png)
 
 
-Data
