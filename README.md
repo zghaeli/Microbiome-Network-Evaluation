@@ -1,0 +1,363 @@
+# Microbiome-Network-Evaluation
+A Pipeline for Evaluating New Algorithms for Constructing Microbial Co-occurrence Networks
+
+
+## Description
+
+In this work evaluating microbial network inference algorithms gCoda, OIPCQ, S-E(glasso), S-E(mb), SPRING, and SparCC under varied conditions, we generated three types of datasets derived from real data: synthetic, noisy, and bootstrap datasets. To assess how closely these datasets resemble real microbiome data, we conducted three types of comparisons: diversity analysis, matrix entry similarity, and distributional alignment. To evaluate their performance, we compared the inferred networks to reference networks using the F-score metric. We adjusted the parameters of each method so that the number of edges in the generated networks fell within a comparable range for a fair comparison.
+
+Create Table of Contents
+## Table of Contents
+- [Algorithms used for evaluation comparison](#algorithms-used-for-comparing)
+- [Data availability](#data-availability)
+- [Data generation methods](#data-generation-methods)
+    - [Bootstrap](#bootstrap)
+    - [Noisy](#noisy)
+    - [Synthetic](#synthetic)
+- [Comparing generated data with real data](#comparing-generated-data-with-real-data)
+  - [Diversity indices](#diversity-indices)
+  - [Matrix entry similarity](#matrix-entry-similarity)
+  - [Distributional similarity (KS test)](#distributional-similarity-ks-test)
+- [performance on constructing microbiome networks based on generated data](#performance-on-constructing-microbiome-networks-based-on-generated-data)
+## Algorithms used for evaluation comparison
+
++ gCoda ([R code on GitHub](https://github.com/huayingfang/gCoda))
++ OIPCQ ([CMIMN package](https://github.com/rosaaghdam/CMiNet/tree/main))
++ S-E(glasso) ([SpiecEasi package](https://github.com/zdk123/SpiecEasi))
++ S-E(mb) ([SpiecEasi package](https://github.com/zdk123/SpiecEasi))
++ SPRING ([SPRING package](https://github.com/GraceYoon/SPRING))
++ SparCC ([SpiecEasi package](https://github.com/zdk123/SpiecEasi))
+
+## Data availability
+
+For each dataset, the original source repository and accession numbers or unique identifiers are provided below.
+
+### American Gut Project datasets (`amgut1` and `amgut2`)
+
+The raw sequence data and metadata originate from the American Gut Project (AGP). The primary repositories are:
+
+- Qiita database: study ID 10317  
+  https://qiita.ucsd.edu/study/description/10317
+
+- European Nucleotide Archive (ENA) at the European Bioinformatics Institute (EBI): project accession PRJEB11419  
+  https://www.ebi.ac.uk/ena/data/view/PRJEB11419
+
+The specific processed OTU tables used in this study are built-in datasets of the R package `SpiecEasi`.
+
+### GUT dataset
+
+This dataset originates from the study by Yooseph et al. (2015):  
+https://doi.org/10.1186/s12864-015-1819-3
+
+Because no public sequence repository accession number was available for the processed version used in this study, the processed sample-taxa count matrix was obtained from the GitHub repository of the `MixMPLN` package:
+
+https://github.com/sahatava/MixMPLN/blob/master/data/real_data.csv
+
+### MOMS-PI dataset
+
+This dataset is from the Multi-Omic Microbiome Study: Pregnancy Initiative (MOMS-PI). The raw data are deposited in:
+
+- NCBI Database of Genotypes and Phenotypes (dbGaP): accession phs001523  
+  https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=phs001523
+
+- NCBI BioProject: accession PRJNA430481  
+  https://www.ncbi.nlm.nih.gov/bioproject/PRJNA430481
+
+The specific processed OTU table used in this study was provided by Osborne et al. (2022) and is accessible at:
+
+https://github.com/Nathan-Osborne/SINC/blob/master/DataApplication/OTU.csv
+
+
+## Data generation methods
+
+#### loading the Data
+We use the American Gut data from [SpiecEasi package](https://github.com/zdk123/SpiecEasi).
+```R
+library(SpiecEasi)
+data("amgut1.filt")
+```
+
+##### Bootstrap
+```R
+library(dplyr)
+library(SpiecEasi)
+source("list_bootstrap_sample_data.R")
+data("amgut1.filt")
+
+# Create bootstrap datasets for amgut1.filt
+amgut1_bootstrap <- List_Bootstrap_Sample(amgut1.filt, 250, nrow(amgut1.filt), TRUE)
+```
+
+#### Noisy
+```R
+library(rtruncnorm)
+library(SpiecEasi)
+source("list_trunc_noise.R")
+data("amgut1.filt")
+
+# Create 100 noisy datasets with 5% and 20% noise levels
+amgut1_truncnoise05_100 <- List_TRUNC_NoisyData(amgut1.filt, 0.05, 100)
+amgut1_truncnoise20_100 <- List_TRUNC_NoisyData(amgut1.filt, 0.2, 100)
+```
+
+#### Synthetic
+```R
+# Load necessary functions
+library(SpiecEasi)
+library(SPRING)
+source("My_Diagnostic.R")
+source("gcoda.R")
+source("gcoda_functions.R") 
+source("list_synth_se_data.R")
+source("list_synth_sp_data.R")
+source("select_adj_by_edge_fraction.R")
+
+
+data("amgut1.filt")
+
+# 1. Create topology using the gCoda algorithm
+gcoda_amgut1 <- gC_NEW(amgut1.filt)
+gold_gcoda_amgut1 <- select_adj_by_edge_fraction(gcoda_amgut1$path, target_frac = 0.02)
+adj_gcoda_amgut1 <- gold_gcoda_amgut1$adj
+index_adj_gcoda_amgut1 <- gold_gcoda_amgut1$index
+
+# 2. Generate synthetic datasets from gCoda topology
+#    SpiecEasi (SE) method
+amgut1_gcoda_SE_100 <- List_SE_Data(amgut1.filt, adj_gcoda_amgut1, num = 100, seed = 123)
+#    SPRING (SP) method
+amgut1_gcoda_SP_100 <- List_SP_Data(amgut1.filt, adj_gcoda_amgut1, num = 100, seed = 456)
+
+# 3. Create a cluster topology using SpiecEasi
+graph_cluster_amgut1 <- SpiecEasi::make_graph('cluster', ncol(amgut1.filt), 0.02 * (ncol(amgut1.filt)(ncol(amgut1.filt) -1)/2))
+adj_cluster_amgut1 <- as.matrix(graph_cluster_amgut1)
+
+# 4. Generate synthetic datasets from cluster topology
+#    SpiecEasi (SE) method
+amgut1_cluster_SE_100 <- List_SE_Data(amgut1.filt, adj_cluster_amgut1, num = 100, seed = 789)
+#    SPRING (SP) method
+amgut1_cluster_SP_100 <- List_SP_Data(amgut1.filt, adj_cluster_amgut1, num = 100, seed = 101)
+```
+
+## Comparing generated data with real data
+
+### Diversity indices
+```R
+library(vegan)
+source("diversity_comparison.R")
+
+amgut1_bootstrap_diversity <- compare_diversity_list(amgut1_bootstrap, amgut1.filt, paired = TRUE, adjust_method = "BH")
+
+amgut1_truncnoise05_diversity <- compare_diversity_list(amgut1_truncnoise05_100, amgut1.filt)
+amgut1_truncnoise20_diversity <- compare_diversity_list(amgut1_truncnoise20_100, amgut1.filt)
+
+amgut1_gcoda_SE_diversity <- compare_diversity_list(amgut1_gcoda_SE_100, amgut1.filt)
+amgut1_gcoda_SP_diversity <- compare_diversity_list(amgut1_gcoda_SP_100, amgut1.filt)
+
+amgut1_cluster_SE_diversity<- compare_diversity_list(amgut1_cluster_SE_100, amgut1.filt)
+amgut1_cluster_SP_diversity<- compare_diversity_list(amgut1_cluster_SP_100, amgut1.filt)
+```
+```R
+# Plots
+par(mar = c(2.5, 2, 2.5, 2), mfrow = c(2,2), oma = c(6, 19, 5, 28))
+
+# Panel 1: cluster vs gCoda (SE)
+vioplot::vioplot(amgut1_cluster_SE_diversity$pvalues$Richness$p_raw,
+                 amgut1_gcoda_SE_diversity$pvalues$Richness$p_raw,
+                 col = c(rep("deepskyblue1", 2)),
+                 cex.axis = 0.8,
+                 names = c("cluster", "gCoda"))
+mtext(expression(bold("P-value")), side = 2, line = 2, cex = 0.9, las = 0)
+mtext(expression(bold("Topology")), side = 1, line = 2.5, cex = 0.9)
+mtext(expression(bold("SE")), side = 3, line = 0.1, cex = 0.7, at = 0.5)
+
+# Panel 2: Noise levels 5% vs 20%
+boxplot(amgut1_truncnoise05_diversity$pvalues$Richness$p_raw,
+        amgut1_truncnoise20_diversity$pvalues$Richness$p_raw,
+        col = c("tan", "salmon1"),
+        border = c("tan", "salmon1"),
+        cex.axis = 0.8,
+        names = c("5%", "20%"))
+mtext(expression(bold("P-value")), side = 2, line = 2, cex = 0.9, las = 0)
+mtext(expression(bold("Noise")), side = 1, line = 2.2, cex = 0.9)
+mtext(expression(bold("Noise")), side = 3, line = 0.1, cex = 0.7, at = 0.57)
+
+# Panel 3: cluster vs gCoda (SP)
+vioplot::vioplot(amgut1_cluster_SP_diversity$pvalues$Richness$p_raw,
+                 amgut1_gcoda_SP_diversity$pvalues$Richness$p_raw,
+                 col = c(rep("mediumvioletred", 2)),
+                 cex.axis = 0.8,
+                 names = c("cluster", "gCoda"))
+mtext(expression(bold("P-value")), side = 2, line = 2, cex = 0.9, las = 0)
+mtext(expression(bold("Topology")), side = 1, line = 2.5, cex = 0.9)
+mtext(expression(bold("SP")), side = 3, line = 0.1, cex = 0.7, at = 0.5)
+
+# Panel 4: Bootstrap
+vioplot::vioplot(amgut1_bootstrap_diversity$pvalues$Richness$p_raw, cex.axis = 0.8, col = "mediumseagreen")
+mtext(expression(bold("P-value")), side = 2, line = 2, cex = 0.9, las = 0)
+mtext(expression(bold("Bootstrap")), side = 1, line = 2.5, cex = 0.9)
+mtext(expression(bold("Bootstrap")), side = 3, line = 0.1, cex = 0.7, at = 0.57)
+
+# Outer title
+mtext(expression(bold("Richness__amgut1")), side = 3, line = -0.7, outer = TRUE, cex = 1.2)
+```
+
+![richness](/image/richness.png)
+
+### Matrix entry similarity
+
+```R
+source("Entrywise_F1score.R")
+
+# Bootstrap
+amgut1_bootstrap_fscore <- lapply(amgut1_bootstrap, calculate_fscore, amgut1.filt)
+
+# Noisy
+amgut1_truncnoise05_fscore <- lapply(amgut1_truncnoise05_100, calculate_fscore, amgut1.filt)
+amgut1_truncnoise20_fscore <- lapply(amgut1_truncnoise20_100, calculate_fscore, amgut1.filt)
+
+# Synthetic
+amgut1_gcoda_SE_fscore <- lapply(amgut1_gcoda_SE_100, calculate_fscore, amgut1.filt)
+amgut1_gcoda_SP_fscore <- lapply(amgut1_gcoda_SP_100, calculate_fscore, amgut1.filt)
+amgut1_cluster_SE_fscore <- lapply(amgut1_cluster_SE_100, calculate_fscore, amgut1.filt)
+amgut1_cluster_SP_fscore <- lapply(amgut1_cluster_SP_100, calculate_fscore, amgut1.filt)
+```
+```R
+# Plots
+boxplot(as.numeric(amgut1_cluster_SE_fscore),
+        as.numeric(amgut1_gcoda_SE_fscore),
+        as.numeric(amgut1_cluster_SP_fscore),
+        as.numeric(amgut1_gcoda_SP_fscore),
+        as.numeric(amgut1_truncnoise05_fscore),
+        as.numeric(amgut1_truncnoise20_fscore),
+        as.numeric(amgut1_bootstrap_fscore),
+        names = c("cluster", "gCoda", "cluster", "gCoda", "5%", "20%", "Bootstrap"),
+        col = c("red3", "red3", "blue3", "blue3", "green3", "green3", "darkgreen"),
+        border = c("red3", "red3", "blue3", "blue3", "green3", "green3", "darkgreen"),
+        ylim = c(0,1),
+        cex = 1.2)
+abline(v = 2.5, col = "gray", lty = 1, lwd = 1.5)
+abline(v = 4.5, col = "gray", lty = 1, lwd = 1.5)
+abline(v = 6.5, col = "gray", lty = 1, lwd = 1.5)
+mtext(expression(bold("SE")), side = 3, at = .4, line = .1, cex = .8)
+mtext(expression(bold("SP")), side = 3, at = 2.7, line = .1, cex = .8)
+mtext(expression(bold("Noise")), side = 3, at = 4.8, line = .1, cex = .8)
+mtext(expression(bold("Bootstrap")), side = 3, at = 7, line = .1, cex = .8)
+mtext(expression(bold("F-score")), side = 2, line = 2.5, cex = 1.3, las = 0)
+mtext(expression(bold("Matrix entry similarity")), side = 3, line = 1.7, cex = 1.4, las = 0)
+
+```
+![Matrix Entry Similarity](/image/entry_fscore.png)
+
+### Distributional similarity (KS test)
+
+```R
+source("ks_compare_list.R")
+
+amgut1_bootstrap_ks <- lapply(amgut1_bootstrap,  compare_OTU_distributions_to_real, amgut1.filt, 0.05)
+
+amgut1_truncnoise05_ks <- lapply(amgut1_truncnoise05_100, compare_OTU_distributions_to_real, amgut1.filt, 0.05)
+amgut1_truncnoise20_ks <- lapply(amgut1_truncnoise20_100, compare_OTU_distributions_to_real, amgut1.filt, 0.05)
+
+amgut1_gcoda_SE_ks <- lapply(amgut1_gcoda_SE_100, compare_OTU_distributions_to_real, amgut1.filt, 0.05)
+amgut1_gcoda_SP_ks <- lapply(amgut1_gcoda_SP_100, compare_OTU_distributions_to_real, amgut1.filt, 0.05)
+
+amgut1_cluster_SE_ks <- lapply(amgut1_cluster_SE_100, compare_OTU_distributions_to_real, amgut1.filt, 0.05)
+amgut1_cluster_SP_ks <- lapply(amgut1_cluster_SP_100, compare_OTU_distributions_to_real, amgut1.filt, 0.05)
+```
+```R
+# Plots
+par(mar = c(2.5, 2, 2.5, 2), mfrow = c(2,2), oma = c(6, 19, 5, 28))
+
+vioplot::vioplot(as.numeric(amgut1_cluster_SE_ks),
+                 as.numeric(amgut1_gcoda_SE_ks),
+                 col = c(rep("deepskyblue1", 2)),
+                 cex.axis = .8,
+                 ylim = c(.8,1),
+                 names = c("cluster", "gCoda"))
+mtext(expression(bold("% OTUs")),  side = 2, line = 2, cex = .9, las = 0)
+mtext(expression(bold("Topology")), side = 1, line = 2.5, cex = .9)
+mtext(expression(bold("SE")), side = 3, line = .1, cex = .7, at = .5)
+#mtext(expression(bold("A")),        side = 3, line = .6,  cex = 2, at = -.5)
+
+vioplot::vioplot(as.numeric(amgut1_truncnoise05_ks), 
+                 as.numeric(amgut1_truncnoise20_ks),
+                 col = c("tan", "salmon1"),
+                 border = c("tan", "salmon1"),
+                 cex.axis = .8,
+                 ylim = c(0,1),
+                 names = c("5%", "20%"))
+mtext(expression(bold("% OTUs")), side = 2, line = 2, cex = .9, las = 0)
+mtext(expression(bold("Noise")), side = 1, line = 2.2, cex = .9)
+mtext(expression(bold("Noise")), side = 3, line = .1, cex = .7, at = .57)
+#mtext(expression(bold("C")),     side = 3,    line = .6, cex = 2, at = -.5)
+
+
+vioplot::vioplot(as.numeric(amgut1_cluster_SP_ks),
+                 as.numeric(amgut1_gcoda_SP_ks),
+                 col = c(rep("mediumvioletred", 2)),
+                 cex.axis = .8,
+                 names = c("cluster", "gCoda"))
+mtext(expression(bold("% OTUs")), side = 2, line = 2, cex = .9, las = 0)
+mtext(expression(bold("Topology")), side = 1, line = 2.5, cex = .9)
+mtext(expression(bold("SP")), side = 3, line = .1, cex = .7, at = .5)
+#mtext(expression(bold("A")),        side = 3, line = .6,  cex = 2, at = -.5)
+
+vioplot::vioplot(as.numeric(amgut1_bootstrap_ks), cex.axis = .8, col = "mediumseagreen")
+mtext(expression(bold("% OTUs")), side = 2, line = 2, cex = .9, las = 0)
+mtext(expression(bold("Bootstrap")), side = 1, line = 2.5, cex = .9)
+mtext(expression(bold("Bootstrap")), side = 3, line = .1, cex = .7, at = .57)
+#mtext(expression(bold("D")),         side = 3, line = .6, cex = 2, at = .32)
+
+mtext(expression(bold("KS__amgut1")), side = 3, line = -.7, outer = TRUE, cex = 1.2)
+```
+![ks](/image/ks.png)
+
+
+## performance on constructing microbiome networks based on generated data
+
+```R
+library(huge)
+source("gcoda.R")
+source("gcoda_functions.R")
+source("My_Diagnostic.R")
+
+
+amgut1_bootstrap_gcoda <- process_gcoda(amgut1.filt, amgut1_bootstrap, adj_gcoda_amgut1, index_adj_gcoda_amgut1, save_dir = ".", timed = TRUE)
+
+amgut1_truncnoise05_gcoda <- process_gcoda(amgut1.filt, amgut1_truncnoise05_100, adj_gcoda_amgut1, index_adj_gcoda_amgut1, save_dir = ".", timed = TRUE)
+amgut1_truncnoise20_gcoda <- process_gcoda(amgut1.filt, amgut1_truncnoise20_100, adj_gcoda_amgut1, index_adj_gcoda_amgut1, save_dir = ".", timed = TRUE)
+
+amgut1_gcoda_SE_gcoda <- process_gcoda(amgut1.filt, amgut1_gcoda_SE_100, adj_gcoda_amgut1, index_adj_gcoda_amgut1, save_dir = ".", timed = TRUE)
+amgut1_gcoda_SP_gcoda <- process_gcoda(amgut1.filt, amgut1_gcoda_SP_100, adj_gcoda_amgut1, index_adj_gcoda_amgut1, save_dir = ".", timed = TRUE)
+
+amgut1_cluster_SE_gcoda <- process_gcoda(amgut1.filt, amgut1_cluster_SE_100, adj_cluster_amgut1, index_adj_gcoda_amgut1, save_dir = ".", timed = TRUE)
+amgut1_cluster_SP_gcoda <- process_gcoda(amgut1.filt, amgut1_cluster_SP_100, adj_cluster_amgut1, index_adj_gcoda_amgut1, save_dir = ".", timed = TRUE)
+```
+```R
+# Plot
+vioplot::vioplot(amgut1_cluster_SE_gcoda$f_scores,
+                 amgut1_gcoda_SE_gcoda$f_scores,
+                 amgut1_cluster_SP_gcoda$f_scores,
+                 amgut1_gcoda_SP_gcoda$f_scores,
+                 amgut1_truncnoise05_gcoda$f_scores,
+                 amgut1_truncnoise20_gcoda$f_scores,
+                 amgut1_bootstrap_gcoda$f_scores,
+                 names = c("cluster", "gCoda", "cluster", "gCoda", "5%", "20%", "Bootstrap"),
+                 col = c("gold", "#C2DF23FF", "gold", "#C2DF23FF", "#AEFFAE", "#63C163", "slateblue2"),
+                 border = c("gray50", "gray50", "gray50", "gray50", "gray50", "gray50", "gray50"),
+                 cex.axis = 1,
+                 ylim = c(0,1))
+abline(v = 2.5, col = "gray", lty = 1, lwd = 1.5)
+abline(v = 4.5, col = "gray", lty = 1, lwd = 1.5)
+abline(v = 6.5, col = "gray", lty = 1, lwd = 1.5)
+mtext(expression(bold("SE")),        side = 3, at = .5,  line = .1,  cex = .7)
+mtext(expression(bold("SP")),        side = 3, at = 2.7, line = .1,  cex = .7)
+mtext(expression(bold("Noise")),     side = 3, at = 4.9, line = .1,  cex = .7)
+mtext(expression(bold("Bootstrap")), side = 3, at = 6.9, line = .1,  cex = .7)
+mtext(expression(bold("F-score")),   side = 2, las = 0,  line = 2.3, cex = 1.1)
+title(paste0("gCoda"), cex.main = 1)
+mtext(expression(bold("amgut1")), side = 3, at = .1, line = -.8, outer = TRUE, cex = 1.3) 
+```
+![gcoda fscores](/image/gcoda_fscores.png)
+
+
