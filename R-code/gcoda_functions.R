@@ -1,63 +1,68 @@
-#' Run gcoda Analysis on a Dataset
+####################################################################
+####           gCoda Network Inference and Evaluation           ####
+####################################################################
+
+# Dependencies:
+# - The script "gcoda.R" must be sourced before using these functions.
+#   It should contain the function gcoda() (e.g., from https://github.com/...)
+# - The function MY_Diagnostic() must be defined elsewhere (user‑supplied).
+
+#' Run gCoda Analysis on a Dataset (Fixed Parameters)
 #'
-#' Performs gcoda analysis on input data and returns results.
+#' Performs gCoda analysis on input count data using fixed parameters:
+#' \code{pseudo = 0.5}, \code{lambda.min.ratio = 1e-4}, \code{nlambda = 15},
+#' and \code{ebic.gamma = 0.5}. Returns the raw gcoda output object.
 #'
-#' @param data Matrix or data frame for gcoda analysis.
-#' @param Thre Numeric value for ebic.gamma parameter.
-#' @return A list with `gC` (gcoda output) and `gC_adj` (refit adjacency matrix).
-
-source("/Microbiome-Network-Evaluation/R-code/gcoda.R")
-
-gC_NEW <- function(data, Thre) {
-  # if (!is.matrix(data) && !is.data.frame(data)) stop("data must be a matrix or data frame")
-  # if (!is.numeric(Thre) || Thre < 0) stop("Thre must be a non-negative numeric value")
-  start <- Sys.time()
-  gC <- gcoda(data, counts = TRUE, pseudo = 1, lambda.min.ratio = 1e-4, nlambda = 50, ebic.gamma = Thre)
-  cat("gC_NEW execution time:", Sys.time() - start, "\n")
-  list(gC = gC, gC_adj = gC$refit)
-}
-
-#' @example
-gcoda_amgut1 <- gC_NEW(amgut1.filt, .85)
-adj_gcoda_amgut1 <- gcoda_amgut1$gC_adj
-
-
-
-
-
-#' Process gCoda Data and Compute Diagnostics
+#' @param data A matrix or data frame of count data (rows = samples, columns = OTUs).
 #'
-#' Applies gCoda processing to sample lists, extracts adjusted matrices, computes
-#' diagnostics, and saves results. Returns a list of processed data and metrics.
+#' @return The full output from \code{gcoda()} (a list containing at least \code{path}).
+#' @export
 #'
-#' @param data Numeric matrix of input data.
-#' @param sample_list List of sample datasets.
-#' @param gold Numeric matrix for diagnostic comparison.
-#' @param threshold Numeric threshold for gCoda processing (default: 0.85).
-#' @param save_dir Directory to save RDS files (default: current directory).
-#' @param timed Logical to print processing time (default: FALSE).
-#' @return List containing gCoda data, adjusted matrices, diagnostics, and F-scores (as a numeric vector).
-#' @examples
-#' \dontrun{
-#'   data <- matrix(rnorm(100), nrow=10)
-#'   samples <- replicate(5, data, simplify=FALSE)
-#'   gold <- matrix(rnorm(100), 10, 10)
-#'   process_gcoda(data, samples, gold)
-#' }
-process_gcoda <- function(data, sample_list, gold, threshold = 0.85, save_dir = ".", timed = FALSE) {
+gC_NEW <- function(data) { gcoda(data, counts = TRUE, pseudo = 0.5, lambda.min.ratio = 1e-4, nlambda = 15, ebic.gamma = 0.5) }
+
+#' Process gCoda on a List of Sample Datasets and Compute Diagnostics
+#'
+#' Applies \code{gC_NEW} to each dataset in a list (e.g., bootstrap replicates),
+#' extracts a specific adjacency matrix from the regularization path (using a
+#' pre‑determined index), computes diagnostic metrics by comparing each extracted
+#' network to a gold standard network, and saves all results as RDS files.
+#'
+#' The function uses \code{MY_Diagnostic(gold, adj, ncol(data))} to obtain
+#' diagnostics (e.g., F1, precision, recall). You must define \code{MY_Diagnostic}
+#' yourself; it should return a list whose 10th element (e.g., \code{d[[1]][10]})
+#' is taken as the F‑score.
+#'
+#' @param data Original data matrix (used for dimension info, e.g., number of OTUs).
+#' @param sample_list A list of matrices or data frames (each with same dimensions as \code{data}).
+#' @param gold A gold standard adjacency matrix (e.g., inferred from the original data).
+#' @param adj_index Integer; the index of the adjacency matrix to extract from the
+#'        \code{path} component of each gcoda output (e.g., obtained from
+#'        \code{select_adj_by_edge_fraction} on the original data).
+#' @param save_dir Directory to save RDS files (default: current directory ".").
+#' @param timed Logical; if \code{TRUE}, prints total processing time.
+#'
+#' @return A list with four components:
+#' \item{gc_data}{List of full gcoda outputs for each sample.}
+#' \item{adj_matrices}{List of extracted adjacency matrices (at index \code{adj_index}).}
+#' \item{diagnostics}{List of diagnostic results from \code{MY_Diagnostic()}.}
+#' \item{f_scores}{Numeric vector of F‑scores (the 10th element of each diagnostic).}
+#' @export
+#'
+#'
+process_gcoda <- function(data, sample_list, gold, adj_index, save_dir = ".", timed = FALSE) {
   start <- if (timed) Sys.time() else NULL
   sample_name <- deparse(substitute(sample_list))
   
-  # Process gCoda data
-  gc_data <- lapply(sample_list, gC_NEW, Thre = threshold)
+  # Run gC_NEW on each sample in the list
+  gc_data <- lapply(sample_list, gC_NEW)
   if (timed) print(Sys.time() - start)
   saveRDS(gc_data, file.path(save_dir, paste0("gcoda_", sample_name, ".rds")))
   
-  # Extract adjusted matrices
-  adj_matrices <- lapply(gc_data, `[[`, 2)
+  # Extract adjacency matrices from the chosen index
+  adj_matrices <- lapply(gc_data, function(x) x$path[[adj_index]])
   saveRDS(adj_matrices, file.path(save_dir, paste0("adj_gcoda_", sample_name, ".rds")))
   
-  # Compute diagnostics and F-scores
+  # Compute diagnostics and F-scores (requires MY_Diagnostic)
   diagnostics <- lapply(adj_matrices, function(adj) MY_Diagnostic(gold, adj, ncol(data)))
   f_scores <- vapply(diagnostics, function(d) d[[1]][10], numeric(1))
   saveRDS(diagnostics, file.path(save_dir, paste0("diag_gcoda_", sample_name, ".rds")))
@@ -67,16 +72,16 @@ process_gcoda <- function(data, sample_list, gold, threshold = 0.85, save_dir = 
 }
 
 #' @example
-amgut1_bootstrap_gcoda <- process_gcoda(amgut1.filt, amgut1_bootstrap, adj_gcoda_amgut1, threshold = 0.85, save_dir = ".", timed = TRUE)
+amgut1_bootstrap_gcoda <- process_gcoda(amgut1.filt, amgut1_bootstrap, adj_gcoda_amgut1, index_adj_gcoda_amgut1, save_dir = ".", timed = TRUE)
 
-amgut1_noise05_gcoda <- process_gcoda(amgut1.filt, amgut1_noise05_100, adj_gcoda_amgut1, threshold = 0.85, save_dir = ".", timed = TRUE)
-amgut1_noise20_gcoda <- process_gcoda(amgut1.filt, amgut1_noise20_100, adj_gcoda_amgut1, threshold = 0.85, save_dir = ".", timed = TRUE)
+amgut1_truncnoise05_gcoda <- process_gcoda(amgut1.filt, amgut1_truncnoise05_100, adj_gcoda_amgut1, index_adj_gcoda_amgut1, save_dir = ".", timed = TRUE)
+amgut1_truncnoise20_gcoda <- process_gcoda(amgut1.filt, amgut1_truncnoise20_100, adj_gcoda_amgut1, index_adj_gcoda_amgut1, save_dir = ".", timed = TRUE)
 
-amgut1_gcoda_SE_gcoda <- process_gcoda(amgut1.filt, amgut1_gcoda_SE_100, adj_gcoda_amgut1, threshold = 0.85, save_dir = ".", timed = TRUE)
-amgut1_gcoda_SP_gcoda <- process_gcoda(amgut1.filt, amgut1_gcoda_SP_100, adj_gcoda_amgut1, threshold = 0.85, save_dir = ".", timed = TRUE)
+amgut1_gcoda_SE_gcoda <- process_gcoda(amgut1.filt, amgut1_gcoda_SE_100, adj_gcoda_amgut1, index_adj_gcoda_amgut1, save_dir = ".", timed = TRUE)
+amgut1_gcoda_SP_gcoda <- process_gcoda(amgut1.filt, amgut1_gcoda_SP_100, adj_gcoda_amgut1, index_adj_gcoda_amgut1, save_dir = ".", timed = TRUE)
 
-amgut1_cluster_SE_gcoda <- process_gcoda(amgut1.filt, amgut1_cluster_SE_100[1:5], adj_cluster_amgut1, threshold = 0.85, save_dir = ".", timed = TRUE)
-amgut1_cluster_SP_gcoda <- process_gcoda(amgut1.filt, amgut1_cluster_SP_100, adj_cluster_amgut1, threshold = 0.85, save_dir = ".", timed = TRUE)
+amgut1_cluster_SE_gcoda <- process_gcoda(amgut1.filt, amgut1_cluster_SE_100, adj_cluster_amgut1, index_adj_gcoda_amgut1, save_dir = ".", timed = TRUE)
+amgut1_cluster_SP_gcoda <- process_gcoda(amgut1.filt, amgut1_cluster_SP_100, adj_cluster_amgut1, index_adj_gcoda_amgut1, save_dir = ".", timed = TRUE)
 
 
 # Plot
@@ -84,8 +89,8 @@ vioplot::vioplot(amgut1_cluster_SE_gcoda$f_scores,
                  amgut1_gcoda_SE_gcoda$f_scores,
                  amgut1_cluster_SP_gcoda$f_scores,
                  amgut1_gcoda_SP_gcoda$f_scores,
-                 amgut1_noise05_gcoda$f_scores,
-                 amgut1_noise20_gcoda$f_scores,
+                 amgut1_truncnoise05_gcoda$f_scores,
+                 amgut1_truncnoise20_gcoda$f_scores,
                  amgut1_bootstrap_gcoda$f_scores,
                  names = c("cluster", "gCoda", "cluster", "gCoda", "5%", "20%", "Bootstrap"),
                  col = c("gold", "#C2DF23FF", "gold", "#C2DF23FF", "#AEFFAE", "#63C163", "slateblue2"),
@@ -102,8 +107,4 @@ mtext(expression(bold("Bootstrap")), side = 3, at = 6.9, line = .1,  cex = .7)
 mtext(expression(bold("F-score")),   side = 2, las = 0,  line = 2.3, cex = 1.1)
 title(paste0("gCoda"), cex.main = 1)
 mtext(expression(bold("amgut1")), side = 3, at = .1, line = -.8, outer = TRUE, cex = 1.3) 
-
-
-
-
 
